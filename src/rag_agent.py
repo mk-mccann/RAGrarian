@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
@@ -100,15 +100,17 @@ def build_citation(doc: Document, source_number: int) -> dict:
     }
 
 
-def format_citation_line(citation: dict, include_content: str | None = None) -> str:
+def format_citation_line(citation: Dict[str, str], include_content: str | None = None) -> str:
     """Render a single citation line (optionally followed by content).
 
     include_content: if provided, appended after the citation line separated by newline.
     """
     base = citation.get("hyperlink_citation") if citation.get("hyperlink_citation") else (citation.get("citation_text") or "")
+   
     if include_content:
         return f"{base}\n{include_content}"
-    return base
+    else:
+        return base
 
 
 class CustomAgentState(AgentState):  
@@ -201,7 +203,7 @@ class RAGAgent:
     def __init__(self,
         chroma_db_dir: Path | str,
         collection_name: str,
-        model_name: str = "mistral-large-latest",
+        model_name: str = "mistral-small-latest",
         embeddings_model: str = "mistral-embed",
         temperature: float = 0.7,
         max_tokens: int = 1024,
@@ -271,6 +273,8 @@ class RAGAgent:
         print("RAG Agent Chat Interface")
         print("Type 'quit', 'exit', or 'q' to end the conversation")
         print("-" * 50)
+
+        last_context = None    # Initialize last_context to None
         
         while True:
             try:
@@ -283,7 +287,7 @@ class RAGAgent:
                 if user_input.lower() == 'sources':
                     if last_context:
                         print("\nSources from last response:")
-                        for idx, doc in enumerate(last_context, 1):
+                        for idx, doc in enumerate(last_context):
                             citation = build_citation(doc, idx)
                             print(f"{format_citation_line(citation)}")
                     else:
