@@ -2,6 +2,7 @@ from time import sleep
 from pathlib import Path
 import json
 import hashlib
+import random
 
 from httpx import ReadError
 from alive_progress import alive_it, alive_bar
@@ -184,7 +185,7 @@ class CreateChromaDB:
         if file_filter is not None:
             filtered_files = []
             for file_path in jsonl_files:
-                rel_path = str(file_path.relative_to(self.chunked_docs_dir))
+                rel_path = str(file_path.name)
                 if rel_path in file_filter:
                     filtered_files.append(file_path)
             jsonl_files = filtered_files
@@ -242,18 +243,30 @@ class CreateChromaDB:
             }, f)
 
 
-    def log_failed_batch(self, batch_num: int, start_idx: int, end_idx: int, error: Exception):
+    def log_failed_batch(self, batch_num: int, documents: List[Document], error: Exception):
         """
-        Log details of a failed batch.
+        Log details of a failed batch including JSONL file paths for reliable retry.
         
         Args:
-            batch_num (int): Batch number.
-            start_idx (int): Starting index of the batch.
-            end_idx (int): Ending index of the batch.
+            documents (List[Document]): Documents in the batch.
             error (Exception): The error that occurred.
         """
         with open(self.failed_batches_file, 'a') as f:
-            f.write(f"Batch {batch_num}: indices {start_idx}-{end_idx}\n")
+            f.write(f"Batch {batch_num}\n")
+            
+            # Store JSONL cache file paths (relative to chunked_docs_dir)
+            jsonl_files = set()
+            for doc in documents:
+                if 'file_path' in doc.metadata:
+                    # Map original markdown file to its JSONL cache equivalent
+                    # The cache is indexed by parent_dir/file_stem.jsonl
+                    orig_path = Path(doc.metadata['file_path'])
+                    parent_dir = orig_path.parent.name
+                    file_stem = orig_path.stem
+                    cache_file = f"{parent_dir}/{file_stem}.jsonl"
+                    jsonl_files.add(cache_file)
+            if jsonl_files:
+                f.write(f"Files: {','.join(sorted(jsonl_files))}\n")
             f.write(f"Error: {str(error)}\n")
             f.write("-" * 50 + "\n")
 
@@ -347,7 +360,7 @@ class CreateChromaDB:
 
             if not index:
                 print("Index file missing or empty. Performing full rebuild.")
-                incremental = False
+                rebuild = True
                 del index
 
             else:
@@ -390,7 +403,6 @@ class CreateChromaDB:
         start_idx = self.load_checkpoint() if resume else 0
         
         # Calculate total batches for progress tracking
-        total_batches = (len(documents) + batch_size - 1) // batch_size
         batches_to_process = ((len(documents) - start_idx) + batch_size - 1) // batch_size
         
         # Initialize i for exception handling
@@ -419,8 +431,8 @@ class CreateChromaDB:
                     except Exception as e:
                         print(f"\nBatch {batch_num} failed after retries: {e}")
                         
-                        # Log failed batch
-                        self.log_failed_batch(batch_num, i, i + len(batch) - 1, e)
+                        # Log failed batch (pass the batch documents for file path logging)
+                        self.log_failed_batch(batch_num, batch, e)
                         
                         print(f"Logged to {self.failed_batches_file}. Continuing with next batch...")
                         
@@ -452,71 +464,88 @@ class CreateChromaDB:
             print("No failures recorded.")
 
 
-    def retry_failed_batches(self, delay_seconds: float = 1):
+    def retry_failed_batches(self, batch_size: int = 100, delay_seconds: float = 1):
         """
-        Read the failed batches log and retry embedding only those ranges.
+        Read the failed batches log and retry embedding only those documents.
+        Only loads JSONL files that contain failed documents.
         
         Args:
+            batch_size (int): Number of documents per batch.
             delay_seconds (float): Seconds to wait between retries.
         """
+
         try:
             with open(self.failed_batches_file, 'r') as f:
                 lines = f.readlines()
-
         except FileNotFoundError:
             print("No failed batches log found. Nothing to retry.")
             return
 
-        failed_ranges = []
-        for line in lines:
-            if line.startswith("Batch ") and "indices " in line:
-                try:
-                    indices_part = line.split("indices ")[1].strip()
-                    start_str, end_str = indices_part.split("-")
-                    start_idx = int(start_str)
-                    end_idx = int(end_str)
-                    failed_ranges.append((start_idx, end_idx))
-                except Exception:
-                    continue
+        # Extract unique JSONL file paths from failed batches
+        failed_jsonl_files = set()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith("Files:"):
+                files_str = line.split("Files: ")[1]
+                # for a temporary fix, we're gonna manually change the md file paths to jsonl paths
+                files = [f.strip() for f in files_str.split(",")]
+                files = [f.replace(".md", ".jsonl") for f in files]
+                files = [Path(f.replace("/raw/", "/chunked_documents/")) for f in files]
+                files = [str(f.name) for f in files]
+                failed_jsonl_files.update(files)
+                # failed_jsonl_files.update(f.strip() for f in files_str.split(","))
+            i += 1
 
-        if not failed_ranges:
-            print("No failed batch ranges detected in the log.")
+        if not failed_jsonl_files:
+            print("No JSONL file information in failed batches log. Cannot retry efficiently.")
             return
 
-        documents = self.load_chunked_documents()
-        total_batches = len(failed_ranges)
-        print(f"Retrying {total_batches} failed batches...")
+        print(f"Loading documents from {len(failed_jsonl_files)} failed JSONL files...")
+        
+        # Load only documents from failed JSONL files
+        documents = self.load_chunked_documents(file_filter=failed_jsonl_files)
+
+        # For funsies, shuffle them around
+        random.shuffle(documents)
+        total_batches = (len(documents) + batch_size - 1) // batch_size
+    
+        if not documents:
+            print("No documents found to retry.")
+            return
+
+        print(f"Retrying {len(documents)} failed documents in {total_batches} batches...")
+
         failed_retries = 0
-
         with alive_bar(total_batches, dual_line=True) as bar:
+            for i in range(0, len(documents), batch_size):
 
-            for idx, (start_idx, end_idx) in enumerate(failed_ranges, start=1):
-                start_idx = max(0, start_idx)
-                end_idx = min(len(documents) - 1, end_idx)
+                batch = documents[i:i + batch_size]
+                batch_num = i // batch_size + 1
                 
-                if start_idx > end_idx:
-                    print(f"Skipping invalid range {start_idx}-{end_idx}")
-                    continue
-
-                batch = documents[start_idx:end_idx + 1]
-                bar.text = f"Retrying failed batch {idx}/{total_batches} (indices {start_idx}-{end_idx})"
-
                 try:
                     self.add_batch_with_retry(batch)
-                    self.save_checkpoint(end_idx + 1, len(documents), len(batch))
                     sleep(delay_seconds)
                 
                 except Exception as e:
-                    print(f"Retry failed for indices {start_idx}-{end_idx}: {e}")
-                    self.log_failed_batch(-1, start_idx, end_idx, e)
+                    print(f"\nRetry failed for batch {batch_num}: {e}")
                     failed_retries += 1
+                    
+                    # Log the failure again with more details
+                    with open(self.failed_batches_file, 'a') as f:
+                        self.log_failed_batch(-1, batch, e)
+                    
                     sleep(5)
+                
+                # update progress bar
+                bar()
 
         if failed_retries > 0:
             print(f"✓ Retry complete with {failed_retries} failures remaining. Check {self.failed_batches_file}.")
         else:
             # Delete the failed batches file if all retries succeeded
             self.failed_batches_file.unlink(missing_ok=True)
+            print("All failed batches successfully retried!")
 
         print("Failed batch retries complete.")
 
@@ -586,13 +615,17 @@ if __name__ == "__main__":
         help="Enable full database rebuild, otherwise only process new/modified files"
     )
     parser.add_argument(
-        "--retry_failed",
+        "--retry",
         action="store_true",
         help="Retry embedding for previously failed batches"
     )
+    parser.add_argument(
+        "--retry_only",
+        action="store_true",
+        help="Retry only the failed batches from the log"
+    )
 
     args = parser.parse_args()
-    print(args)
 
     # Setup and create ChromaDB
     creator = CreateChromaDB(
@@ -609,12 +642,18 @@ if __name__ == "__main__":
     # Set rebuild=True and resume=False to rebuild the entire database from scratch
     # If rebuild=False and resume=False, it will reprocess new/modified documents from the start
     # If rebuild=True and resume=True, it will resume full processing from the last checkpoint
-    creator.embed_and_store(batch_size=args.batch_size, 
-                            delay_seconds=args.delay_seconds, 
-                            resume=args.resume, 
-                            rebuild=args.rebuild)
-    
-    # Retry failed batches if needed
-    creator.retry_failed_batches()
+    if args.retry_only:
+        creator.retry_failed_batches(batch_size=args.batch_size, 
+                                     delay_seconds=args.delay_seconds)
+    else:
+
+        creator.embed_and_store(batch_size=args.batch_size, 
+                                delay_seconds=args.delay_seconds, 
+                                resume=args.resume, 
+                                rebuild=args.rebuild)
+        
+        # Retry failed batches if needed
+        if args.retry:
+            creator.retry_failed_batches()
     
     print("ChromaDB creation complete.")
