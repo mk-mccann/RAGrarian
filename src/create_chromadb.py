@@ -54,29 +54,14 @@ class CreateChromaDB:
         else:
             self.index_file = Path(index_file)
 
-        if not self.chroma_db_dir.exists():
-            self.chroma_db_dir.mkdir(parents=True, exist_ok=True)
-
+        self.chroma_db_dir.mkdir(parents=True, exist_ok=True)
 
         self.vectorstore = Chroma(
             collection_name = self.collection_name,
             embedding_function = embeddings,
             persist_directory = str(self.chroma_db_dir), 
-            collection_metadata={"hnsw:space": "cosine"}  # Best for text, default is l2
+            collection_metadata={"hnsw:space": "cosine"}  # For langchain compatibility (plus l2 is weird for text)
         )    
-
-
-    def refresh_embeddings(self):
-        """
-        Refresh embeddings in the ChromaDB vector database.
-        """
-
-        self.vectorstore = Chroma(
-            collection_name=self.collection_name,
-            embedding_function=self.embeddings,
-            persist_directory=str(self.chroma_db_dir), 
-            collection_metadata={"hnsw:space": "cosine"}
-        )
 
 
     def load_index(self) -> Dict:
