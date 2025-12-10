@@ -7,13 +7,16 @@ from rag_agent import RAGAgent
 
 
 # Set custom theme
-theme = gr.themes.Ocean(
-    text_size="lg",
-)
+theme = gr.themes.Ocean(text_size="lg")
 
 # Load environment variables
 load_dotenv()
-mistral_api_key = os.getenv("MISTRAL_API_KEY").strip()
+mistral_api_key = os.getenv("MISTRAL_API_KEY")
+
+if mistral_api_key:
+    mistral_api_key = mistral_api_key.strip()
+else:   
+    raise ValueError("MISTRAL_API_KEY not set in environment variables.")
 
 # Initialize the RAG agent
 agent = RAGAgent(
@@ -21,6 +24,7 @@ agent = RAGAgent(
     collection_name="ragrarian",
     model_name="mistral-small-latest",
     embeddings_model="mistral-embed",
+    search_function="mmr"
 )
 
 # Store conversation threads per session
@@ -48,8 +52,8 @@ def chat_with_agent(message, history, thread_id="default"):
         
         # Format sources for display using shared helpers
         sources_text = "**Sources:**\n\n"
-        if result["sources"]:
-            for source in result["sources"]:
+        if result["context"]:
+            for source in result["context"]:
                 sources_text += f"{source}\n\n"
         else:
             sources_text += "No sources retrieved."
@@ -84,7 +88,7 @@ def create_demo():
     with gr.Blocks(theme=theme, title="RAG Agent Demo") as demo:
         
         gr.Markdown("""
-        # 🌱 RAGrarian - Sustainable Development Knowledge Base
+        # 🌿 **Permacore** 🌿 Sustainable Development Knowledge Base
         
         Ask questions about sustainable development and get answers with source citations!
         
@@ -95,8 +99,9 @@ def create_demo():
             chatbot = gr.ChatInterface(
                 type="messages",
                 fn=chat_interface,
-                title="Chat with the RAGrarian",
-                description="Ask questions about permaculture. Type ""sources"" at any time to see the sources used in the last answer.",
+                title="Chat with Permacore",
+                description="Ask questions about permaculture. " \
+                "Type ""sources"" at any time to see the sources used in the last answer.",
                 examples=[
                     "What is permaculture?",
                     "What are the principles of permaculture?",
@@ -153,7 +158,7 @@ def create_demo():
         
         with gr.Tab("About"):
             gr.Markdown("""
-            ## About the RAGrarian
+            ## About Permacore
             
             This is a Retrieval-Augmented Generation (RAG) agent that answers questions about permaculture.
             
@@ -178,7 +183,7 @@ def create_demo():
             ### Developed by:           
             Matt McCann :copyright: 2025 | GPL v3
                         
-            View the [Source Code](https://github.com/mk-mccann/RAGrarian) on GitHub
+            View the [Source Code](https://github.com/mk-mccann/Permacore) on GitHub
                         
             [Personal Site](www.mk-mccann.github.io) | [LinkedIn](https://linkedin.com/in/matt-k-mccann/)
             """)
