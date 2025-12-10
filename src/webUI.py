@@ -3,7 +3,7 @@ import gradio as gr
 from pathlib import Path
 from dotenv import load_dotenv
 
-from rag_agent import RAGAgent
+from rag_agent import RAGAgent, ModelConfig, RetrievalConfig
 
 
 # Set custom theme
@@ -22,9 +22,11 @@ else:
 agent = RAGAgent(
     chroma_db_dir=Path("../chroma_db"),
     collection_name="ragrarian",
-    model_name="mistral-small-latest",
-    embeddings_model="mistral-embed",
-    search_function="mmr"
+    model_config=ModelConfig(),
+    retrieval_config=RetrievalConfig(
+            search_function="similarity", 
+            similarity_threshold=0.3,  
+        )
 )
 
 # Store conversation threads per session
