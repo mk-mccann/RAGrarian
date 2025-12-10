@@ -57,10 +57,12 @@ class CreateChromaDB:
         if not self.chroma_db_dir.exists():
             self.chroma_db_dir.mkdir(parents=True, exist_ok=True)
 
+
         self.vectorstore = Chroma(
             collection_name = self.collection_name,
             embedding_function = embeddings,
-            persist_directory = str(self.chroma_db_dir)
+            persist_directory = str(self.chroma_db_dir), 
+            collection_metadata={"hnsw:space": "cosine"}  # Best for text, default is l2
         )    
 
 
@@ -72,7 +74,8 @@ class CreateChromaDB:
         self.vectorstore = Chroma(
             collection_name=self.collection_name,
             embedding_function=self.embeddings,
-            persist_directory=str(self.chroma_db_dir)
+            persist_directory=str(self.chroma_db_dir), 
+            collection_metadata={"hnsw:space": "cosine"}
         )
 
 
