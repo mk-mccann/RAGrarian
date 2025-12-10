@@ -5,6 +5,7 @@ from langchain_core.documents import Document
 # ---------------------------------------------------------------------------
 # Shared citation formatting helpers (reusable across chat/query/UI)
 # ---------------------------------------------------------------------------
+
 def format_header_chain(metadata: dict) -> str | None:
     """
     Build a hierarchical header chain H1 > H2 > H3 > H4 from metadata.
@@ -126,18 +127,37 @@ def format_citation_line(citation: Dict[str, str],
     Args:
         citation (Dict[str, str]): Citation dictionary from build_citation().
         include_content (str | None): if provided, appended after the citation line separated by newline.
-        debug_score (bool): If True, includes the document score in the citation.
+        debug_score (bool): If True, includes the document score in the citation. Not used if score is absent.
 
     Returns:
         str: Formatted citation line (and content if provided).
     """
 
     base = citation.get("hyperlink_citation", citation.get("citation_text", ""))
+
     if debug_score:
-        base += f" (Score: {citation['score']:.2f})"
+        base += f" [Score: {citation['score']}]"
    
     if include_content:
         return f"{base}\n{include_content}"
     else:
         return base
 
+
+def format_context_for_display(retrieved_docs: list[tuple[Document, float | None]], 
+                               debug_score: bool = False) -> list[str]:
+    """
+    Format retrieved documents as citation strings for display.
+    
+    Args:
+        retrieved_docs: List of (Document, score) tuples.
+        
+    Returns:
+        List of formatted citation strings.
+    """
+    context = []
+    for idx, (doc, score) in enumerate(retrieved_docs, 1):
+        citation_dict = build_citation(doc, idx, score)
+        citation = format_citation_line(citation_dict, debug_score=debug_score)
+        context.append(citation)
+    return context
