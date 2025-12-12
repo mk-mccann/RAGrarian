@@ -1,7 +1,5 @@
-import os
 import gradio as gr
 from pathlib import Path
-from dotenv import load_dotenv
 
 from rag_agent import RAGAgent, ModelConfig, RetrievalConfig
 
@@ -9,31 +7,33 @@ from rag_agent import RAGAgent, ModelConfig, RetrievalConfig
 # Set custom theme
 theme = gr.themes.Ocean(text_size="lg")
 
-# Load environment variables
-load_dotenv()
-mistral_api_key = os.getenv("MISTRAL_API_KEY")
-
-if mistral_api_key:
-    mistral_api_key = mistral_api_key.strip()
-else:   
-    raise ValueError("MISTRAL_API_KEY not set in environment variables.")
-
-# Initialize the RAG agent
-agent = RAGAgent(
-    chroma_db_dir=Path("../chroma_db"),
-    collection_name="ragrarian",
-    model_config=ModelConfig(),
-    retrieval_config=RetrievalConfig(
-            search_function="similarity", 
-            similarity_threshold=0.3,  
-        )
-)
-
 # Store conversation threads per session
 conversation_threads = {}
 
 
-def chat_with_agent(message, history, thread_id="default"):
+def chat_with_agent(message, history, state, thread_id="default"):
+    """
+    Main chat interface function for Gradio ChatInterface.
+    
+    Args:
+        message (str): User's input message
+        history: Chat history
+        thread_id (str): Conversation thread identifier
+        
+    Yields:
+        str: Incremental chunks of the agent's response
+    """
+
+    response = ""
+
+    for chunk in agent.stream_answer(message, history, state, thread_id=thread_id):
+        response += chunk
+        yield chunk
+
+    return response, state
+
+
+def query_agent(message, history, thread_id="default"):
     """
     Process user message and return response with sources.
     
@@ -54,33 +54,14 @@ def chat_with_agent(message, history, thread_id="default"):
         
         # Format sources for display using shared helpers
         sources_text = "**Sources:**\n\n"
-        if result["context"]:
-            for source in result["context"]:
-                sources_text += f"{source}\n\n"
-        else:
-            sources_text += "No sources retrieved."
+        for source in result["context"]:
+            sources_text += f"{source}\n\n"
         
         return result["answer"], sources_text
         
     except Exception as e:
         error_msg = f"Error: {str(e)}"
         return error_msg, "Error retrieving sources."
-
-
-def chat_interface(message, history):
-    """
-    Main chat interface function for Gradio ChatInterface.
-    
-    Args:
-        message (str): User's input message
-        history: Chat history
-        
-    Returns:
-        str: Agent's response
-    """
-    # Use a default thread for the chat interface
-    result = agent.query(message, thread_id="gradio_session")
-    return result["answer"]
 
 
 def create_demo():
@@ -98,17 +79,21 @@ def create_demo():
         """)
         
         with gr.Tab("Chat"):
+            state = gr.State({"context": None})
+
             chatbot = gr.ChatInterface(
                 type="messages",
-                fn=chat_interface,
+                fn=chat_with_agent,
+                additional_inputs=[state],
+                chatbot=gr.Chatbot(),
                 title="Chat with Permacore",
                 description="Ask questions about permaculture. " \
-                "Type ""sources"" at any time to see the sources used in the last answer.",
+                "Type ```sources``` at any time to see the sources used in the last answer.",
                 examples=[
-                    "What is permaculture?",
-                    "What are the principles of permaculture?",
-                    "How does permaculture relate to sustainability?",
-                    "What are common permaculture techniques?",
+                    ["What is permaculture?"],
+                    ["What are the principles of permaculture?"],
+                    ["How does permaculture relate to sustainability?"],
+                    ["What are common permaculture techniques?"],
                 ],
                 # retry_btn=None,
                 # undo_btn="◀️ Undo",
@@ -120,40 +105,42 @@ def create_demo():
             
             with gr.Row():
                 with gr.Column(scale=2):
+
                     query_input = gr.Textbox(
                         label="Your Question",
                         placeholder="e.g., What is permaculture?",
                         lines=3
                     )
                     query_btn = gr.Button("Ask Question", variant="primary")
+                        # Example questions
+
+                    gr.Examples(
+                    examples=[
+                        ["What is permaculture?"],
+                        ["What are the ethics of permaculture?"],
+                        ["Explain companion planting"],
+                        ["What is forest gardening?"],
+                    ],
+                    inputs=query_input,
+                )
                 
             with gr.Row():
                 with gr.Column():
-                    answer_output = gr.Textbox(
+                    answer_output = gr.Markdown(
                         label="Answer",
-                        lines=10,
+                        value="Response will appear here after asking a question.",
                         show_copy_button=True
                     )
                 with gr.Column():
                     sources_output = gr.Markdown(
-                        label="Sources",
+                        label="📚 **RAG Sources**",
                         value="Sources will appear here after asking a question."
                     )
             
-            # Example questions
-            gr.Examples(
-                examples=[
-                    ["What is permaculture?"],
-                    ["What are the ethics of permaculture?"],
-                    ["Explain companion planting"],
-                    ["What is forest gardening?"],
-                ],
-                inputs=query_input,
-            )
             
             # Connect the query button
             query_btn.click(
-                fn=lambda q: chat_with_agent(q, None, "query_tab"),
+                fn=lambda q: query_agent(q, None, "query_tab"),
                 inputs=query_input,
                 outputs=[answer_output, sources_output]
             )
@@ -196,8 +183,18 @@ def create_demo():
 
 if __name__ == "__main__":
     import argparse
+    from os import getenv
+    from dotenv import load_dotenv
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent Web UI")
+    parser.add_argument(
+        "--search_function",
+        type=str,
+        choices=["mmr", "similarity"],
+        default="similarity",
+        required=False,
+        help="Search function to use for retrieval [options: mmr, similarity (default)]"
+    )
     parser.add_argument(
         "--host",
         type=str,
@@ -220,10 +217,31 @@ if __name__ == "__main__":
     parser.add_argument(
         "--debug",
         action="store_true",
+        default=False,
         help="Enable debug mode."
     )
 
     args = parser.parse_args()
+
+    # Load environment variables
+    load_dotenv()
+    mistral_api_key = getenv("MISTRAL_API_KEY")
+
+    if mistral_api_key:
+        mistral_api_key = mistral_api_key.strip()
+    else:   
+        raise ValueError("MISTRAL_API_KEY not set in environment variables.")
+
+    # Initialize the RAG agent
+    agent = RAGAgent(
+        chroma_db_dir=Path("../chroma_db"),
+        collection_name="ragrarian",
+        model_config=ModelConfig(),
+        retrieval_config=RetrievalConfig(
+                search_function=args.search_function, 
+                similarity_threshold=0.3,  
+            )
+        )
 
     demo = create_demo()
     demo.launch(
