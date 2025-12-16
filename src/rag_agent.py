@@ -586,7 +586,7 @@ if __name__ == "__main__":
 
     agent = RAGAgent(
         chroma_db_dir=Path("../chroma_db"),
-        collection_name="ragrarian",
+        collection_name="permacore",
         embeddings_model="mistral-embed",
         model_config=ModelConfig(
             name="mistral-small-latest",

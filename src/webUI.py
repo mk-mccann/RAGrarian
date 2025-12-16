@@ -235,7 +235,7 @@ if __name__ == "__main__":
     # Initialize the RAG agent
     agent = RAGAgent(
         chroma_db_dir=Path("../chroma_db"),
-        collection_name="ragrarian",
+        collection_name="permacore",
         model_config=ModelConfig(),
         retrieval_config=RetrievalConfig(
                 search_function=args.search_function, 
