@@ -243,8 +243,8 @@ if __name__ == "__main__":
             )
         )
 
-    demo = create_demo()
-    demo.launch(
+    app = create_demo()
+    app.launch(
         server_name=args.host,
         server_port=args.port,
         show_error=args.debug,
