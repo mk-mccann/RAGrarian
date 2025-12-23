@@ -71,7 +71,7 @@ def create_demo():
     with gr.Blocks(theme=theme, title="RAG Agent Demo") as demo:
         
         gr.Markdown("""
-        # 🌿 **Permacore** 🌿 Sustainable Development Knowledge Base
+        #**Permacore** 🌿 Sustainable Development Knowledge Base
         
         Ask questions about sustainable development and get answers with source citations!
         
