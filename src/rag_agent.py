@@ -1,6 +1,5 @@
 import re
 from pathlib import Path
-from dataclasses import dataclass
 from typing import Any, List, Tuple, Dict, Literal, Union, Generator
 
 from langchain_core.documents import Document
@@ -12,43 +11,8 @@ from langchain.agents.middleware import AgentMiddleware, AgentState
 from langgraph.checkpoint.memory import InMemorySaver  
 
 from utils.citation_formatter import build_citation, format_citation_line, format_context_for_display
+from src.config import LLMConfig, RetrievalConfig
 
-
-@dataclass
-class ModelConfig:
-    """
-    Configuration for the LLM model.
-
-    Args:
-        name (str): Model name. Default is "mistral-small-latest".
-        temperature (float): Model temperature. Default is 0.7.
-        max_tokens (int): Maximum number of tokens for the model output. Default is 1024.
-    """
-
-    name: str = "mistral-small-latest"
-    temperature: float = 0.7
-    max_tokens: int = 1024
-
-
-@dataclass
-class RetrievalConfig:
-    """
-    Configuration for document retrieval.
-    
-    Args:
-        k_documents (int): Number of documents to retrieve.
-        search_function (str): Search function to use
-                                      'mmr' for max marginal relevance
-                                      (default) 'similarity' for standard similarity search.    
-        similarity_threshold (float): Similarity score threshold for document filtering.
-        lambda_mmr (float): Lambda parameter for max marginal relevance search.
-        debug_score (bool): Flag to include similarity scores in the output for debugging.
-    """
-    k_documents: int = 5
-    search_function: str = "similarity"   # 'mmr' for max marginal relevance. Default is 'similarity' for cosine similarity search
-    similarity_threshold: float = 0.25    # used for similarity search
-    lambda_mmr: float = 0.7  # used for mmr search
-    debug_score: bool = False
 
 
 class CustomAgentState(AgentState):  
@@ -224,7 +188,7 @@ class RAGAgent:
         chroma_db_dir: Path | str,
         collection_name: str = "ragrarian",
         embeddings_model: str = "mistral-embed",
-        model_config: ModelConfig | None = None,
+        llm_config: LLMConfig | None = None,
         retrieval_config: RetrievalConfig | None = None,
         **kwargs
     ):
@@ -245,7 +209,7 @@ class RAGAgent:
         
         self.chroma_db_dir = Path(chroma_db_dir)
         self.collection_name = collection_name
-        self.model_config = model_config or ModelConfig()
+        self.model_config = llm_config or LLMConfig()
         self.retrieval_config = retrieval_config or RetrievalConfig()
         
         # Debug flags
@@ -263,7 +227,7 @@ class RAGAgent:
         
         # Initialize chat model
         self.model = ChatMistralAI(
-            model_name=self.model_config.name,
+            model_name=self.model_config.model,
             temperature=self.model_config.temperature,
             max_tokens=self.model_config.max_tokens
         )
@@ -588,8 +552,8 @@ if __name__ == "__main__":
         chroma_db_dir=Path("../chroma_db"),
         collection_name="permacore",
         embeddings_model="mistral-embed",
-        model_config=ModelConfig(
-            name="mistral-small-latest",
+        llm_config=LLMConfig(
+            model="mistral-small-latest",
             temperature=0.7,
             max_tokens=1024
         ),

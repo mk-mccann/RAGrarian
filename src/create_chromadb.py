@@ -1,8 +1,10 @@
-from time import sleep
-from pathlib import Path
 import json
 import hashlib
-import random
+import json
+import yaml
+from time import sleep
+from pathlib import Path
+from datetime import datetime
 
 from httpx import HTTPStatusError, ReadError
 from alive_progress import alive_it, alive_bar
@@ -14,6 +16,8 @@ from langchain_community.document_loaders import JSONLoader
 from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_mistralai.embeddings import MistralAIEmbeddings
 
+from config import ChromaConfig
+
 
 class CreateChromaDB:
 
@@ -21,10 +25,9 @@ class CreateChromaDB:
         self, 
         embeddings,
         chunked_docs_dir: Path | str, 
-        chroma_db_dir: Path | str, 
+        chroma_config: ChromaConfig | None = None,
         checkpoint_file: Path | str = "embedding_progress.json",
         failed_batches_file: Path | str = "failed_batches.txt",
-        collection_name: str = "default_collection",
         index_file: Optional[Path | str] = None,
         ):
        
@@ -42,9 +45,8 @@ class CreateChromaDB:
         """
 
         self.embeddings = embeddings
-        self.collection_name = collection_name
         self.chunked_docs_dir = Path(chunked_docs_dir)
-        self.chroma_db_dir = Path(chroma_db_dir)
+        self.chroma_config = chroma_config or ChromaConfig()
         self.checkpoint_file = Path(checkpoint_file)
         self.failed_batches_file = Path(failed_batches_file)
         
@@ -54,13 +56,11 @@ class CreateChromaDB:
         else:
             self.index_file = Path(index_file)
 
-        self.chroma_db_dir.mkdir(parents=True, exist_ok=True)
-
         self.vectorstore = Chroma(
-            collection_name = self.collection_name,
             embedding_function = embeddings,
-            persist_directory = str(self.chroma_db_dir), 
-            collection_metadata={"hnsw:space": "cosine"}  # For langchain compatibility (plus l2 is weird for text)
+            persist_directory = str(self.chroma_config.directory), 
+            collection_name = self.chroma_config.collection_name,
+            collection_metadata=self.chroma_config.metadata
         )    
 
 
@@ -476,13 +476,9 @@ class CreateChromaDB:
             line = lines[i].strip()
             if line.startswith("Files:"):
                 files_str = line.split("Files: ")[1]
-                # for a temporary fix, we're gonna manually change the md file paths to jsonl paths
-                files = [f.strip() for f in files_str.split(",")]
-                files = [f.replace(".md", ".jsonl") for f in files]
-                files = [Path(f.replace("/raw/", "/chunked_documents/")) for f in files]
+                files = [self.chunked_docs_dir/Path(f.strip()) for f in files_str.split(",")]
                 files = [str(f.name) for f in files]
                 failed_jsonl_files.update(files)
-                # failed_jsonl_files.update(f.strip() for f in files_str.split(","))
             i += 1
 
         if not failed_jsonl_files:
@@ -494,8 +490,8 @@ class CreateChromaDB:
         # Load only documents from failed JSONL files
         documents = self.load_chunked_documents(file_filter=failed_jsonl_files)
 
-        # For funsies, shuffle them around
-        random.shuffle(documents)
+        # For funsies, shuffle them around to see if that helps with the error
+        # random.shuffle(documents)
         total_batches = (len(documents) + batch_size - 1) // batch_size
     
         if not documents:
@@ -610,12 +606,17 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    chroma_config = ChromaConfig(
+        collection_name=args.collection_name,
+        directory=Path(args.vectorstore_path),
+        metadata={"hnsw:space": "cosine"}
+        )
+
     # Setup and create ChromaDB
     creator = CreateChromaDB(
         embeddings=embeddings,
-        collection_name=args.collection_name,
+        chroma_config = chroma_config,
         chunked_docs_dir=Path(args.input_directory),
-        chroma_db_dir=Path(args.vectorstore_path),
         checkpoint_file=Path(args.logs_directory)/"embedding_checkpoint.json",
         failed_batches_file=Path(args.logs_directory)/"failed_batches.txt"
     )

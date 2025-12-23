@@ -25,33 +25,8 @@ from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Configuration constants
-DISALLOWED_FILE_TYPES = [
-    '.png', '.jpg', '.jpeg', '.gif', '.pdf', 
-    '.docx', '.zip', '.fcstd', '.stl', '.kdenlive',
-    '.mp4', '.mp3', '.avi', '.mov', '.svg', '.skp',
-    '.exe', '.dmg', '.iso', '.tar', '.gz', '.rar', '.7z', '.csv',
-    '.xlsx', '.pptx', '.ini', '.sys', '.dll', '.dxf', '.odt', 
-    '.ods', '.odp', '.epub', '.mobi', '.dae', '.fbx', '.3ds',
-    '.ino', '.stp'
-]
+from src.config import DISALLOWED_FILE_TYPES, DISALLOWED_PAGE_TYPES, BOILERPLATE_INDICATORS, FRONTMATTER_KEY_ORDER
 
-DISALLOWED_PAGE_TYPES = [
-    'File:', 'Schematic:', 'Category:', 'Special:', 
-    'Template:', 'one-community-welcomes'
-]
-
-BOILERPLATE_INDICATORS = [
-    "Navigation menu",
-    "Contribute to this page",
-    "###### WHO WE ARE",
-    "###### WHO IS ONE COMMUNITY",
-    "Retrieved from",
-]
-
-FRONTMATTER_KEY_ORDER = [
-    'source', 'title', 'author', 'url', 'access_date', 
-    'date', 'license', 'description', 'keywords'
-]
 
 
 # ============================================================================

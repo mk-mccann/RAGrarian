@@ -1,8 +1,6 @@
 import re
 import time
 import json
-import yaml
-import requests
 from typing import List
 from pathlib import Path
 
@@ -12,7 +10,9 @@ from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 from langdetect import detect, LangDetectException
 from langchain_community.document_transformers import Html2TextTransformer
-from langchain_community.document_loaders import SitemapLoader, RecursiveUrlLoader, WebBaseLoader
+from langchain_community.document_loaders import SitemapLoader, RecursiveUrlLoader, WebBaseLoader, AsyncChtmlLoader
+
+from src.config import DISALLOWED_FILE_TYPES
 
 
 class WebsiteSpider(scrapy.Spider):
@@ -42,13 +42,7 @@ class WebsiteSpider(scrapy.Spider):
         self.visited_urls = set()
         self.max_depth = 2  # Set your desired crawl depth
 
-        self.disallowed_file_types = [
-            '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.docx', '.zip', '.fcstd', 
-            '.stl', '.kdenlive', '.mp4', '.mp3', '.avi', '.mov', '.svg', '.skp',
-            '.exe', '.dmg', '.iso', '.tar', '.gz', '.rar', '.7z', '.csv',
-            '.xlsx', '.pptx', '.ini', '.sys', '.dll', '.dxf', '.odt', 
-            '.ods', '.odp', '.epub', '.mobi', '.dae', '.fbx', '.3ds'
-        ]
+        self.disallowed_file_types = DISALLOWED_FILE_TYPES
 
 
     @staticmethod
@@ -103,17 +97,10 @@ class WebsiteSpider(scrapy.Spider):
                     yield response.follow(absolute_url, self.parse)
 
 
-
-
-
-
-
-
-
 class LangChainHTMLScraper:
     def __init__(self, 
                  base_output_dir: Path | str, 
-                 config_path: str = "config/urls.json",
+                 config_path: str = "config/config.json",
                  target_langs: List[str] | str = ['en'], 
                  delay_seconds: int = 1
     ):
@@ -123,7 +110,7 @@ class LangChainHTMLScraper:
 
         self.delay_seconds = delay_seconds
 
-        self.config = self._load_config(Path(config_path))
+        self.urls = self._load_config(Path(config_path))
         self.visited_urls = set()
 
         # Handle target languages - must be list
@@ -132,14 +119,8 @@ class LangChainHTMLScraper:
         else:
             self.target_langs = target_langs
 
-        self.disallowed_file_types = [
-            '.png', '.jpg', '.jpeg', '.gif', '.pdf', '.docx', '.zip', '.fcstd', 
-            '.stl', '.kdenlive', '.mp4', '.mp3', '.avi', '.mov', '.svg', '.skp',
-            '.exe', '.dmg', '.iso', '.tar', '.gz', '.rar', '.7z', '.csv',
-            '.xlsx', '.pptx', '.ini', '.sys', '.dll', '.dxf', '.odt', 
-            '.ods', '.odp', '.epub', '.mobi', '.dae', '.fbx', '.3ds'
-        ]
-
+        self.disallowed_file_types = DISALLOWED_FILE_TYPES
+        
         if not self.base_output_dir.exists():
             self.base_output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -242,6 +223,7 @@ class LangChainHTMLScraper:
             
             print(f"Saved: {filepath}")
     
+
     def _url_to_filename(self, url: str) -> str:
         """Convert URL to a valid filename."""
         filename = re.sub(r'https?://', '', url)
@@ -250,5 +232,5 @@ class LangChainHTMLScraper:
 
 
 if __name__ == "__main__":
-    scraper = LangChainHTMLScraper("../data/raw/scraped", config_path="../config/urls.json")
+    scraper = LangChainHTMLScraper("../data/raw/scraped", config_path="../config/config.json")
     scraper.scrape()

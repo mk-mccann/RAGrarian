@@ -15,21 +15,7 @@ from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 from langdetect import detect, LangDetectException
 
-
-DISALLOWED_FILE_TYPES = [
-    'png', 'jpg', 'jpeg', 'gif', 'pdf', 
-    'docx', 'zip', 'fcstd', 'stl', 'kdenlive',
-    'mp4', 'mp3', 'avi', 'mov', 'svg', 'skp',
-    'exe', 'dmg', 'iso', 'tar', 'gz', '.rar', '7z', 'csv',
-    'xlsx', 'pptx', 'ini', 'sys', 'dll', 'dxf', 'odt', 
-    'ods', 'odp', 'epub', 'mobi', 'dae', 'fbx', '3ds',
-    'ino', 'stp'
-]
-
-DISALLOWED_PAGE_TYPES = [
-    'File:', 'Schematic:', 'Category:', 'Special:', 
-    'Template:', 'one-community-welcomes', '/tag/'
-]
+from src.config import DISALLOWED_FILE_TYPES, DISALLOWED_PAGE_TYPES
 
 
 class HTML2MDScraper:
@@ -178,7 +164,7 @@ class HTML2MDScraper:
             if type(save_dir) is str:
                 save_dir = Path(save_dir)
 
-            page_save_path = save_dir / page_name
+            page_save_path = save_dir / page_name   #type: ignore
 
             soup = BeautifulSoup(response.text, "html.parser")
             metadata = self.assemble_metadata(soup, url, config)
@@ -336,7 +322,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "config_file",
         type=str,
-        default="../config/urls.json",
+        default="../data/urls.json",
         required=True,
         help="Path to config JSON file with URLs to scrape."
     )
@@ -348,21 +334,21 @@ if __name__ == "__main__":
         help="Directory to save scraped webpages as Markdown files."
     )
     parser.add_argument(
-        "n_workers", 
+        "--n_workers", 
         type=int, 
-        default=4, 
+        default=1, 
         required=False,
         help="Number of concurrent workers for crawling."
         )
     parser.add_argument(
-        "delay_seconds", 
+        "--delay_seconds", 
         type=int, 
         default=1, 
         required=False,
         help="Delay in seconds between requests to the same site."
         )
     parser.add_argument(
-        "target-langs",
+        "--target-langs",
         type=str,
         nargs='+',
         default=['en'],
