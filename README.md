@@ -3,8 +3,9 @@ title: Permacore
 emoji: 🌿
 colorFrom: green
 colorTo: blue
-sdk: {{sdk}}
-sdk_version: "{{sdkVersion}}"
+sdk: gradio
+sdk_version: 1.x
+python_version: python_version
 app_file: app.py
 pinned: true
 ---
