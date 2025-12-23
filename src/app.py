@@ -83,7 +83,6 @@ def create_demo():
             state = gr.State({"context": None})
 
             chatbot = gr.ChatInterface(
-                type="messages",
                 fn=chat_with_agent,
                 additional_inputs=[state],
                 chatbot=gr.Chatbot(),
