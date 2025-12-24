@@ -34,7 +34,7 @@ All data sources are either open-source or usage permissions have been granted b
 - Conversational interface for exploring sustainable agriculture topics
 
 ## Installation
-A Python `venv` or `conda` environment is recommended for installation. Then, 
+A `venv` or `conda` environment is recommended for installation. Then, 
 
 ```bash
 pip install -r requirements.txt
@@ -43,14 +43,14 @@ pip install -r requirements.txt
 ## Interactive UI
 **COMING SOON - Hosting on HuggingFace**
 
-The UI is powered by Gradio. A local UI can be started with by running `webUI.py`.
+The UI is powered by Gradio. A local UI can be started with by running `app.py`.
 
 ## Command Line Usage
 **NOTICE - A MistralAI API key is required!**
 
 ```python
 # Example usage
-from Permacore.rag_agent import RAGAgent
+from permacore.rag_agent import RAGAgent
 
 agent = rag_agent()
 
