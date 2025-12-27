@@ -18,7 +18,7 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
 
     def __init__(self, 
                  vectorstore: Chroma, 
-                 retrieval_config: RetrievalConfig = RetrievalConfig(),
+                 retrieval_config: RetrievalConfig | None = None,
                  ):
         
         """
@@ -34,6 +34,10 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
 
         """
         
+        # Initialize retrieval config with defaults if not provided
+        if retrieval_config is None:
+            retrieval_config = RetrievalConfig()
+
         self.vectorstore = vectorstore
         self.k_documents = retrieval_config.k_documents
         self.similarity_threshold = retrieval_config.similarity_threshold
@@ -50,7 +54,7 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
 
     def _similarity_search(self, query: str) -> list[tuple[Document, float]]:
         """
-        Perform standard similarity search with score filtering.
+        Perform standard cosine distance search with score filtering. Lower is more similar.
 
         Args:
             query (str): Query string.
@@ -58,17 +62,29 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
             list[tuple[Document, float]]: List of (Document, score) tuples.
         """
 
-        retrieved_docs_scores =  self.vectorstore.similarity_search_with_score(
+        retrieved_docs = self.vectorstore.similarity_search_with_score(
             query,
             k=self.k_documents
         )
 
+        if not retrieved_docs:
+            return []
+        
+        # Filter docs based on similarity threshold
+        passing_docs = [(doc, score) for (doc, score) in retrieved_docs if 0. < score < self.similarity_threshold]
+        
         # Update doc metadata to flag that this comes from our database
-        docs = [(doc.model_copy(update={"metadata": {**doc.metadata, "source_type": "rag"}}), score) for 
-                (doc, score) in retrieved_docs_scores]
+        if not passing_docs:
+            return []
+        
+        # Check if the source_type is already set to avoid overwriting
+        if "source_type" in passing_docs[0][0].metadata:
+            final_docs = passing_docs
+        else:
+            final_docs = [(doc.model_copy(update={"metadata": {**doc.metadata, "source_type": "rag"}}), score) for 
+                        (doc, score) in passing_docs]
 
-        return [(doc, score) for (doc, score) in docs 
-                           if 0 < score < self.similarity_threshold]
+        return final_docs
 
 
     def _mmr_search(self, query: str) -> list[tuple[Document, None]]:
@@ -82,14 +98,18 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
             list[Tuple[Document, None]]: List of retrieved Documents.
         """
 
-        docs = self.vectorstore.max_marginal_relevance_search(
+        retrieved_docs = self.vectorstore.max_marginal_relevance_search(
             query,
             k=self.k_documents,
             lambda_mult=self.lambda_mmr
         )
         
-        # Update doc metadata to flag that this comes from our database
-        docs = [doc.model_copy(update={"metadata": {**doc.metadata, "source_type": "rag"}}) for doc in docs]
+        # Check if the source_type is already set to avoid overwriting
+        if "source_type" in retrieved_docs[0].metadata:
+            docs = retrieved_docs
+        else:
+            docs = [doc.model_copy(update={"metadata": {**doc.metadata, "source_type": "rag"}}) for 
+                    doc in retrieved_docs]
 
         # Now return documents with None as score placeholder for consistency
         return [(doc, None) for doc in docs]
@@ -120,8 +140,9 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
             original_query: Original user query content.
             
         Returns:
-            str: Formatted context string for augmenting the model input.
+          str: Formatted context string for augmenting the model input.
         """
+
         # When feeding documents to the model, include citations
         # but not scores (not used in model input)
         docs_content_with_citations = []

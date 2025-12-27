@@ -1,0 +1,16 @@
+chroma:
+  directory: ../chroma
+  collection_name: permacore
+  metadata:
+    hnsw:space: cosine
+
+llm:
+  model_name: mistral-small-latest
+  temperature: 0.5
+  max_tokens: 1024
+
+retrieval:
+  top_k: 5
+  search_function: similarity        # Options: similarity, mmr
+  similarity_threshold: 0.5
+  lambda_mmr: 0.3

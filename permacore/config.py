@@ -1,12 +1,13 @@
 import json
-from dataclasses import dataclass, field
+import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, TypeVar, Type
+from pydantic import BaseModel, Field
 
 
-# ====================================
+# ============================================
 # Configuration constants
-# ====================================
+# ============================================
 
 DISALLOWED_FILE_TYPES = [
     '.png', '.jpg', '.jpeg', '.gif', '.pdf', 
@@ -37,21 +38,48 @@ FRONTMATTER_KEY_ORDER = [
 ]
 
 
-# ====================================
+# ============================================
 # Data classes used throughout this project
-# ====================================
+# Defualts can be overridden by user config
+# ============================================
 
-CONFIG_PATH = Path("configs/config.json")
-
-
-def load_config():
-    with open(CONFIG_PATH, "r") as f:
-        config = json.load(f)
-    return config
+# Path to the user configuration file
+CONFIG_PATH = Path(__file__).parents[1] / "configs" / "user_config.yaml"
 
 
-@dataclass
-class ChromaConfig:
+T = TypeVar('T', bound='ConfigBase')
+
+class ConfigBase(BaseModel):
+    """
+    Base class for all configurable Pydantic models.
+    Provides a method to load configuration from a file and override with CLI arguments.
+    """
+
+    @classmethod
+    def from_config(cls: Type[T], config_path: str | Path, key: str, **cli_overrides) -> T:
+        """Load configuration from a YAML or JSON file and override defaults."""
+
+        config_path = Path(config_path)
+
+        if not config_path.exists():
+            print(f"Config file {config_path} does not exist. Using default configuration.")
+            return cls()  # Return defaults if file doesn't exist
+
+        with open(config_path, "r") as f:
+            if config_path.suffix in (".yaml", ".yml"):
+                user_config = yaml.safe_load(f)
+            elif config_path.suffix == ".json":
+                user_config = json.load(f)
+            else:
+                raise ValueError("Unsupported config file format. Use YAML or JSON.")
+            
+        base_config = cls(**user_config[key])
+
+        # Override with CLI arguments
+        return base_config.model_copy(update=cli_overrides)
+
+
+class ChromaConfig(ConfigBase):
     """
     Configuration for ChromaDB
 
@@ -65,62 +93,25 @@ class ChromaConfig:
     embeddings: Any = None
     directory: str | Path = Path("../chroma")
     collection_name: str = "default_collection"
-    metadata: Dict[str, str] = field(default_factory = lambda: {"hnsw:space": "cosine"})
-
-    # def __init__(self, **kwargs):
-    #     # Load user config from JSON
-    #     user_config = self._load_config()
-    #     user_config = user_config.get('chroma', {})
-        
-    #     # Override default values with user config if provided
-    #     for key, value in {**user_config, **kwargs}.items():
-    #         if hasattr(self, key):
-    #             setattr(self, key, value)
-
-    #     # Ensure directory exists
-    #     if type(self.directory) is str:
-    #         self.directory = Path(self.directory)
-
-    #     self.directory.mkdir(parents=True, exist_ok=True)    #type: ignore
-
-    # @staticmethod
-    # def _load_config():
-    #     return load_config()
+    metadata: Dict[str, str] = Field(default_factory = lambda: {"hnsw:space": "cosine"})
 
 
-
-@dataclass
-class LLMConfig:
+class LLMConfig(ConfigBase):
     """
-    Configuration for the LLM model.
+    Configuration for the LLM model. This example uses MistralAI.
 
     Args:
-        name (str): Model name. Default is "mistral-small-latest".
+        model_name (str): Model name. Default is "mistral-small-latest".
         temperature (float): Model temperature. Default is 0.7.
         max_tokens (int): Maximum number of tokens for the model output. Default is 1024.
     """
 
-    model: str = "mistral-small-latest"
+    model_name: str = "mistral-small-latest"
     temperature: float = 0.7
     max_tokens: int = 1024
 
-    # def __init__(self, **kwargs):
-    #     # Load user config from JSON
-    #     user_config = self._load_config()
-    #     user_config = user_config.get('llm', {})
 
-    #     # Override default values with user config if provided
-    #     for key, value in {**user_config, **kwargs}.items():
-    #         if hasattr(self, key):
-    #             setattr(self, key, value)
-
-    # @staticmethod
-    # def _load_config():
-    #     return load_config()
-
-
-@dataclass
-class RetrievalConfig:
+class RetrievalConfig(ConfigBase):
     """
     Configuration for document retrieval.
     
@@ -128,28 +119,25 @@ class RetrievalConfig:
         k_documents (int): Number of documents to retrieve.
         search_function (str): Search function to use
                                       'mmr' for max marginal relevance
-                                      (default) 'similarity' for standard similarity search.    
+                                      (default) 'similarity' for standard cosine similarity search.    
         similarity_threshold (float): Similarity score threshold for document filtering.
         lambda_mmr (float): Lambda parameter for max marginal relevance search.
         debug_score (bool): Flag to include similarity scores in the output for debugging.
     """
 
     k_documents: int = 5
-    search_function: str = "similarity"   # 'mmr' for max marginal relevance. Default is cosine similarity search
+    search_function: str = "similarity"   # options: 'mmr', 'similarity'
     similarity_threshold: float = 0.3     # used for similarity search
-    lambda_mmr: float = 0.7  # used for mmr search
-    debug_score: bool = False
+    lambda_mmr: float = 0.7               # used for mmr search
 
-    # def __init__(self, **kwargs):
-    #     # Load user config from JSON
-    #     user_config = self._load_config()
-    #     user_config = user_config.get('retrieval', {})
 
-    #     # Override default values with user config if provided
-    #     for key, value in {**user_config, **kwargs}.items():
-    #         if hasattr(self, key):
-    #             setattr(self, key, value)
+if __name__ == "__main__":
+    # Example usage
+    chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
+    llm_config = LLMConfig.from_config(CONFIG_PATH, "llm")
+    retrieval_config = RetrievalConfig.from_config(CONFIG_PATH, "retrieval")
 
-    # @staticmethod
-    # def _load_config():
-    #     return load_config()
+    print("Loading configurations from", CONFIG_PATH)
+    print("Chroma Config:", chroma_config)
+    print("LLM Config:", llm_config)
+    print("Retrieval Config:", retrieval_config)

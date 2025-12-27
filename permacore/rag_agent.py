@@ -1,17 +1,16 @@
 import re
 from typing import Any, List, Tuple, Dict, Literal, Union, Generator
 
-from langchain_core.documents import Document
+from langchain.agents import create_agent
 from langchain_chroma import Chroma
+from langchain_core.documents import Document
 from langchain_mistralai import ChatMistralAI
 from langchain_mistralai.embeddings import MistralAIEmbeddings
-from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver  
 
 from config import ChromaConfig, LLMConfig, RetrievalConfig
 from middleware.retriever import CustomAgentState, RetrieveDocumentsMiddleware
 from utils.citation_formatter import format_context_for_display
-
 
 
 class RAGAgent:
@@ -53,7 +52,7 @@ class RAGAgent:
         
         # Initialize chat model
         self.model = ChatMistralAI(
-            model_name=llm_config.model,
+            model_name=llm_config.model_name,
             temperature=llm_config.temperature,
             max_tokens=llm_config.max_tokens
         )
@@ -84,7 +83,6 @@ class RAGAgent:
         self._last_context: list[tuple[Document, float | None]] = []
 
 
-
     @staticmethod
     def _is_source_request(question: str) -> bool:
         """
@@ -101,13 +99,14 @@ class RAGAgent:
 
         return any(keyword in question_lower for keyword in source_keywords)
 
+
     @staticmethod
     def _extract_llm_references(text: str) -> list:
         """Extract references like [1], [2], etc., from the LLM's response."""
         return re.findall(r'\[(\d+)\]', text)
 
 
-    def query(self, question: str, thread_id: str = "default", **kwargs) -> dict:
+    def query(self, question: str, thread_id: str = "default", **kwargs) -> Dict[str, Any]:
         """
         Query the agent with a single question.
         
@@ -117,8 +116,9 @@ class RAGAgent:
             kwargs: Additional arguments (debug_score, include_content).
             
         Returns:
-            dict: Contains 'answer' and 'context' keys.
+            Dict[str, Any]: Contains 'answer' and 'context' keys.
         """
+
         result = self.agent.invoke(
             {"messages": [{"role": "user", "content": question}]},
             {"configurable": {"thread_id": thread_id}}
@@ -131,7 +131,7 @@ class RAGAgent:
         if retrieved:
             context = format_context_for_display(retrieved, debug_score=self.debug_score)
         else:
-            context = ["No sources retrieved."]
+            context = "No sources retrieved."
 
             
         return {
@@ -161,15 +161,13 @@ class RAGAgent:
                 if user_input.lower() in ['quit', 'exit', 'q']:
                     print("Goodbye!")
                     break
-                
-                if user_input.lower() == 'sources':
+
+                if self._is_source_request(user_input):
                     if last_context:
-                        print("\nSources from last response:")
-                        for citation in format_context_for_display(last_context, 
-                                                                   debug_score=self.debug_score):
-                            print(citation)
+                        sources = format_context_for_display(last_context, debug_score=self.debug_score)
+                        print("\n\nSources:\n" + "\n".join(sources))
                     else:
-                        print("No sources available yet. Ask a question first!")
+                        print("\n\nNo resources retrieved!.")
                     continue
                 
                 if not user_input:
@@ -202,6 +200,7 @@ class RAGAgent:
             except KeyboardInterrupt:
                 print("\n\nGoodbye!")
                 break
+
             except Exception as e:
                 print(f"\nError: {e}")
                 continue
@@ -222,7 +221,6 @@ class RAGAgent:
 
         partial = ""
         full_response = ""
-        rag_context = []
 
         # Handle "sources" command
         if self._is_source_request(question):
@@ -230,7 +228,7 @@ class RAGAgent:
                 sources = format_context_for_display(state["context"])
                 yield "\n\nSources:\n" + "\n".join(sources)
             else:
-                yield "\n\nNo RAG sources available."
+                yield "\n\nNo resources retrieved!"
             return
 
         for step in self.agent.stream(
@@ -258,8 +256,8 @@ class RAGAgent:
             # Capture context for sources when available
             if "context" in step:
                 # Store context for potential "sources" command
-                rag_context = [(doc, score) for doc, score in step["context"] if doc.metadata.get("source_type") == "rag"]
-                state["context"] = rag_context
+                # rag_context = [(doc, score) for doc, score in step["context"] if doc.metadata.get("source_type") == "rag"]
+                state["context"] = step["context"]
 
         # # After streaming, check for LLM-generated references
         # if full_response: 
@@ -314,13 +312,14 @@ class RAGAgent:
 if __name__ == "__main__":
     from os import getenv
     from dotenv import load_dotenv
+    from config import CONFIG_PATH
     import argparse
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent in the terminal or test it with a query.")
 
     parser.add_argument("--chat", action="store_true", help="Run the RAG Agent in interactive chat mode.")
     parser.add_argument("--test", action="store_true", help="Test the RAG Agent with a predefined query.")
-    parser.add_argument("--debug_scores", action="store_true", default=False, help="Display similarity scores in sources (for testing).")
+    parser.add_argument("--debug_score", action="store_true", default=False, help="Display similarity scores in sources (for testing).")
 
     args = parser.parse_args()
 
@@ -331,29 +330,19 @@ if __name__ == "__main__":
         mistral_api_key = mistral_api_key.strip()
     else:   
         raise ValueError("MISTRAL_API_KEY not set in environment variables.")
-    
 
     # Set up configurations
-    chroma_config = ChromaConfig(
-        embeddings = MistralAIEmbeddings(api_key=mistral_api_key,   #type : ignore
-                                         model="mistral-embed")    
-    )
-    
-    llm_config = LLMConfig(
-        model="mistral-small-latest",
-        temperature=0.7,
-        max_tokens=1024
-        )
-    
-    retrieval_config = RetrievalConfig(
-        debug_score=args.debug_scores
-        )
+    chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
+    chroma_config.embeddings = MistralAIEmbeddings(api_key=mistral_api_key)    # type: ignore
+    llm_config = LLMConfig.from_config(CONFIG_PATH, "llm")
+    retrieval_config = RetrievalConfig.from_config(CONFIG_PATH, "retrieval")
 
     # Initialize the RAG agent
     agent = RAGAgent(
         chroma_config=chroma_config,
         llm_config=llm_config,
-        retrieval_config=retrieval_config
+        retrieval_config=retrieval_config,
+        debug_score=args.debug_scores
     )
     
     # Option 1: Interactive chat

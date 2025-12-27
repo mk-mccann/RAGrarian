@@ -1,8 +1,7 @@
 import gradio as gr
-from pathlib import Path
 
 from rag_agent import RAGAgent
-from config import LLMConfig, RetrievalConfig
+from config import ChromaConfig, LLMConfig, RetrievalConfig
 
 
 # Set custom theme
@@ -69,10 +68,10 @@ def create_demo():
     """Create and configure the Gradio interface."""
     
     # Create the interface with tabs
-    with gr.Blocks(theme=theme, title="RAG Agent Demo") as demo:
+    with gr.Blocks() as demo:
         
         gr.Markdown("""
-        #**Permacore** 🌿 Sustainable Development Knowledge Base
+        # **Permacore** 🌿 Sustainable Development Knowledge Base
         
         Ask questions about sustainable development and get answers with source citations!
         
@@ -185,6 +184,7 @@ if __name__ == "__main__":
     import argparse
     from os import getenv
     from dotenv import load_dotenv
+    from config import CONFIG_PATH
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent Web UI")
     parser.add_argument(
@@ -232,18 +232,22 @@ if __name__ == "__main__":
     else:   
         raise ValueError("MISTRAL_API_KEY not set in environment variables.")
 
+    # Set up configurations
+    chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
+    chroma_config.embeddings = MistralAIEmbeddings(api_key=mistral_api_key)    # type: ignore
+    llm_config = LLMConfig.from_config(CONFIG_PATH, "llm")
+    retrieval_config = RetrievalConfig.from_config(CONFIG_PATH, "retrieval")
+
     # Initialize the RAG agent
     agent = RAGAgent(
-        chroma_db_dir=Path("../chroma_db"),
-        collection_name="permacore",
-        llm_config=LLMConfig(),
-        retrieval_config=RetrievalConfig(
-                search_function=args.search_function, 
-            )
+        chroma_config=chroma_config,
+        llm_config=llm_config,
+        retrieval_config=retrieval_config
         )
 
     app = create_demo()
     app.launch(
+        theme=theme, 
         server_name=args.host,
         server_port=args.port,
         show_error=args.debug,

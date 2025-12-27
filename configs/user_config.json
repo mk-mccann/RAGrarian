@@ -8,15 +8,15 @@
         },
 
     "llm": {
-        "model": "mistral-small-latest",
+        "model_name": "mistral-small-latest",
         "temperature": 0.7,
         "max_tokens": 1024
         },
 
     "retrieval":{
         "top_k": 5,
-        "search_function": "mmr",
-        "similarity_threshold": 0.75,
+        "search_function": "mmr",   
+        "similarity_threshold": 0.5,
         "lambda_mmr": 0.5
     }
 

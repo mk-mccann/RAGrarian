@@ -538,6 +538,7 @@ if __name__ == "__main__":
     import argparse
     from os import getenv
     from dotenv import load_dotenv
+    from config import CONFIG_PATH
 
         # Setup argument parser
     parser = argparse.ArgumentParser()
@@ -606,11 +607,10 @@ if __name__ == "__main__":
     # Setup Mistral model and embeddings
     embeddings = MistralAIEmbeddings(api_key=api_key_str, model="mistral-embed")
 
-
-    chroma_config = ChromaConfig(
+    chroma_config = ChromaConfig.from_config(
+        CONFIG_PATH, "chroma",
         collection_name=args.collection_name,
         directory=Path(args.vectorstore_path),
-        metadata={"hnsw:space": "cosine"}
         )
 
     # Setup and create ChromaDB
