@@ -1,4 +1,5 @@
 import gradio as gr
+from langchain_mistralai.embeddings import MistralAIEmbeddings
 
 from rag_agent import RAGAgent
 from config import ChromaConfig, LLMConfig, RetrievalConfig
