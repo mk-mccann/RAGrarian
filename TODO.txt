@@ -1,9 +1,9 @@
 - Datetime logging
-- Separate LLM-retrieved sources from RAG retrieved soources
+- Separate LLM-retrieved sources from RAG retrieved sources
 - Add NLP-based chunking for better results with poorly formatted blogs
 - Add option for user to upload files and integrate that into UI
-- Check Pydantic for loading. I want a way for the user to set the config.json, but be able to override it in the CLI if the argument is provided.
 
 
 Completed:
 - Rebuild ChromaDB with cosine similarity
+- Check Pydantic for loading. I want a way for the user to set the config.json, but be able to override it in the CLI if the argument is provided.
