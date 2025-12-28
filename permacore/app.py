@@ -1,4 +1,8 @@
+import os
+import tarfile
+
 import gradio as gr
+from huggingface_hub import hf_hub_download
 from langchain_mistralai.embeddings import MistralAIEmbeddings
 
 from rag_agent import RAGAgent
@@ -232,6 +236,18 @@ if __name__ == "__main__":
         mistral_api_key = mistral_api_key.strip()
     else:   
         raise ValueError("MISTRAL_API_KEY not set in environment variables.")
+    
+    # Downlaod any required data files from Hugging Face if needed
+    hf_hub_download(
+        repo_id="mk-mccann/Permacore_vectorstore",
+        filename="chroma_db.tar.gz",
+        local_dir="./chroma", 
+        cache_dir="./chroma",
+    )
+
+    # Extract
+    with tarfile.open("chroma_db.tar.gz", "r:gz") as tar:
+        tar.extractall()
 
     # Set up configurations
     chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
