@@ -33,33 +33,53 @@ All data sources are either open-source or usage permissions have been granted b
 - Knowledge base covering permaculture design, soil health, water management, and more
 - Conversational interface for exploring sustainable agriculture topics
 
+## Demo on Hugging Face
+
+Run an interactive demo at [https://huggingface.co/spaces/mk-mccann/Permacore](https://huggingface.co/spaces/mk-mccann/Permacore)
+
 ## Installation
-A `venv` or `conda` environment is recommended for installation. Then, 
+
+A `conda` environment is recommended for installation. Then, 
 
 ```bash
 pip install -r requirements.txt
 ```
 
 ## Interactive UI
-**COMING SOON - Hosting on HuggingFace**
 
-The UI is powered by Gradio. A local UI can be started with by running `app.py`.
+The UI is powered by Gradio. A local UI can be started by running `python app.py`.
 
 ## Command Line Usage
-**NOTICE - A MistralAI API key is required!**
 
 ```python
 # Example usage
+from os import getenv
+from dotenv import load_dotenv
 from permacore.rag_agent import RAGAgent
+from config import ChromaConfig, LLMConfig, RetrievalConfig
 
-agent = rag_agent()
+load_dotenv()
+mistral_api_key = getenv("MISTRAL_API_KEY")
+
+# Set up configurations
+chroma_config = ChromaConfig()
+chroma_config.embeddings = MistralAIEmbeddings(api_key=mistral_api_key)    # type: ignore
+llm_config = LLMConfig()
+retrieval_config = RetrievalConfig()
+
+# Initialize the RAG agent
+agent = RAGAgent(
+    chroma_config=chroma_config,
+    llm_config=llm_config,
+    retrieval_config=retrieval_config,
+)
 
 # For a single query:
 response = agent.query("What are the three ethics of permaculture?")
 print(response)
 
 # For interactive chat:
-agent.chat()
+agent.cli_chat()
 ```
 
 ## Contributing
