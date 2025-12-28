@@ -39,6 +39,10 @@ class RAGAgent:
         chroma_config = chroma_config or ChromaConfig()
         llm_config = llm_config or LLMConfig()
         retrieval_config = retrieval_config or RetrievalConfig()
+
+        # Add chroma embeddings if not already set
+        if not chroma_config.embeddings:
+            chroma_config.embeddings = MistralAIEmbeddings()    # type: ignore
         
         # Debug flags
         self.debug_score = kwargs.get("debug_score", False)

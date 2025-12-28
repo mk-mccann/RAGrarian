@@ -52,7 +52,7 @@ The UI is powered by Gradio. A local UI can be started by running `python app.py
 ## Command Line Usage
 
 ```python
-# Example usage
+# Minimal example usage
 from os import getenv
 from dotenv import load_dotenv
 from permacore.rag_agent import RAGAgent
@@ -61,18 +61,8 @@ from config import ChromaConfig, LLMConfig, RetrievalConfig
 load_dotenv()
 mistral_api_key = getenv("MISTRAL_API_KEY")
 
-# Set up configurations
-chroma_config = ChromaConfig()
-chroma_config.embeddings = MistralAIEmbeddings(api_key=mistral_api_key)    # type: ignore
-llm_config = LLMConfig()
-retrieval_config = RetrievalConfig()
-
 # Initialize the RAG agent
-agent = RAGAgent(
-    chroma_config=chroma_config,
-    llm_config=llm_config,
-    retrieval_config=retrieval_config,
-)
+agent = RAGAgent()
 
 # For a single query:
 response = agent.query("What are the three ethics of permaculture?")
