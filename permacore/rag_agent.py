@@ -135,7 +135,7 @@ class RAGAgent:
         if retrieved:
             context = format_context_for_display(retrieved, debug_score=self.debug_score)
         else:
-            context = "No sources retrieved."
+            context = ["No sources retrieved."]
 
             
         return {

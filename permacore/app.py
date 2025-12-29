@@ -58,7 +58,7 @@ def query_agent(message, history, thread_id="default"):
         result = agent.query(message, thread_id=thread_id)
         
         # Format sources for display using shared helpers
-        sources_text = "**Sources:**\n\n"
+        sources_text = "📚 **RAG Sources**\n\n"
         for source in result["context"]:
             sources_text += f"{source}\n\n"
         
@@ -188,7 +188,7 @@ def create_demo():
 if __name__ == "__main__":
     import argparse
     from dotenv import load_dotenv
-    from config import CONFIG_PATH, HF_DATA_DIR, CHROMA_DIR
+    from config import CONFIG_PATH, HF_DATA_DIR, ROOT_DIR, CHROMA_DIR
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent Web UI")
     parser.add_argument(
@@ -213,7 +213,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-
     # Download any required data files from Hugging Face if needed
     if not CHROMA_DIR.exists() or not any(CHROMA_DIR.iterdir()):
 
@@ -224,8 +223,8 @@ if __name__ == "__main__":
             repo_type="dataset",
         )
 
-        with tarfile.open(dataset_path) as tar:
-            tar.extractall(CHROMA_DIR)
+        with tarfile.open("/home/matt/repos/Permacore/chroma_db.tar.gz") as tar:
+            tar.extractall(ROOT_DIR)
 
     # Set up configurations
     load_dotenv()  # Load environment variables from .env file if present
