@@ -189,7 +189,7 @@ if __name__ == "__main__":
     import argparse
     from os import getenv
     from dotenv import load_dotenv
-    from config import CONFIG_PATH, HF_DATA_DIR, CHROMA_DIR
+    from config import CONFIG_PATH, HF_DATA_DIR, CHROMA_DIR, MISTRAL_API_KEY
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent Web UI")
     parser.add_argument(
@@ -203,16 +203,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--host",
         type=str,
-        default="127.0.0.1",
-        required=False,
-        help="Host address to run the Gradio app on."
-    )
-    parser.add_argument(
-        "--port",
-        type=int,
-        default=7860,
-        required=False,
-        help="Port to run the Gradio app on."
+        default="hf",
+        options=["local", "remote", "hf"],
+        help="Where the Gradio app is hosted. Use 'local' for localhost, 'remote' for remote hosting, or 'hf' for Hugging Face Spaces."
     )
     parser.add_argument(
         "--share",
@@ -228,32 +221,23 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # Load environment variables
-    load_dotenv()
-    mistral_api_key = getenv("MISTRAL_API_KEY")
 
-    if mistral_api_key:
-        mistral_api_key = mistral_api_key.strip()
-    else:   
-        raise ValueError("MISTRAL_API_KEY not set in environment variables.")
-    
-    print(os.getcwd())
-    # Downlaod any required data files from Hugging Face if needed
-    dataset_path = hf_hub_download(
-        repo_id="mk-mccann/Permacore_vectorstore",
-        filename="chroma_db.tar.gz",
-        cache_dir=HF_DATA_DIR,
-        repo_type="dataset",
-    )
+    # Download any required data files from Hugging Face if needed
+    if not CHROMA_DIR.exists() or not any(CHROMA_DIR.iterdir()):
 
-    # Extract, if not already done
-    if not os.path.exists(CHROMA_DIR):
+        dataset_path = hf_hub_download(
+            repo_id="mk-mccann/Permacore_vectorstore",
+            filename="chroma_db.tar.gz",    
+            cache_dir=HF_DATA_DIR,
+            repo_type="dataset",
+        )
+
         with tarfile.open(dataset_path) as tar:
             tar.extractall(CHROMA_DIR)
 
     # Set up configurations
     chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
-    chroma_config.embeddings = MistralAIEmbeddings(api_key=mistral_api_key)    # type: ignore
+    chroma_config.embeddings = MistralAIEmbeddings(api_key=MISTRAL_API_KEY)    # type: ignore
     llm_config = LLMConfig.from_config(CONFIG_PATH, "llm")
     retrieval_config = RetrievalConfig.from_config(CONFIG_PATH, "retrieval")
 
@@ -264,11 +248,21 @@ if __name__ == "__main__":
         retrieval_config=retrieval_config
         )
 
+    # Set ports for Gradio app depending on if local or hosted
+    if args.host == "local":
+        port = 7860
+        host = "127.0.0.1:7860"
+    elif args.host == "hf":
+        port = 7860
+        host = "0.0.0.0"
+    else:
+        raise NotImplementedError("Remote hosting not yet implemented.")
+
     app = create_demo()
     app.launch(
         theme=theme, 
-        server_name=args.host,
-        server_port=args.port,
+        server_name=host,
+        server_port=port,
         show_error=args.debug,
         share=args.share,
     )

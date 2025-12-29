@@ -630,12 +630,13 @@ class MarkdownChunkerWithKeywordExtraction:
 
 if __name__ == "__main__":
     import argparse
+    from config import DATA_DIR
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "input_directory",
         type=str,
-        default="../data/raw",
+        default=str(DATA_DIR / "raw"),
         help="Directory containing markdown files to chunk"
     )
     parser.add_argument(

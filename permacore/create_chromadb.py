@@ -538,7 +538,7 @@ if __name__ == "__main__":
     import argparse
     from os import getenv
     from dotenv import load_dotenv
-    from config import CONFIG_PATH, DATA_DIR, CHROMA_DIR, LOGS_DIR
+    from config import CONFIG_PATH, DATA_DIR, CHROMA_DIR, LOGS_DIR, MISTRAL_API_KEY
 
         # Setup argument parser
     parser = argparse.ArgumentParser()
@@ -590,16 +590,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    load_dotenv()
-    api_key_str = getenv("MISTRAL_API_KEY")
-    
-    if not api_key_str:
-        raise ValueError("MISTRAL_API_KEY not found in environment variables")
-    
-    api_key_str = api_key_str.strip()
 
     # Setup Mistral model and embeddings
-    embeddings = MistralAIEmbeddings(api_key=api_key_str, model="mistral-embed")
+    embeddings = MistralAIEmbeddings(api_key=MISTRAL_API_KEY, model="mistral-embed")
 
     chroma_config = ChromaConfig.from_config(
         CONFIG_PATH, "chroma",

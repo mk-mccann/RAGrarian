@@ -1,8 +1,29 @@
 import json
 import yaml
 from pathlib import Path
+from os import getenv
+from dotenv import load_dotenv
 from typing import Dict, Any, TypeVar, Type
 from pydantic import BaseModel, Field
+
+
+# Set default project paths
+ROOT_DIR = Path(__file__).resolve().parents[1]
+CHROMA_DIR = ROOT_DIR / "chroma"
+DATA_DIR = ROOT_DIR / "data"
+HF_DATA_DIR = ROOT_DIR / "hf_data"
+LOGS_DIR = ROOT_DIR / "logs"
+CONFIG_PATH = ROOT_DIR / "configs" / "user_config.yaml"
+
+# Load environment variables from .env file if it exists
+load_dotenv()
+MISTRAL_API_KEY = getenv("MISTRAL_API_KEY")
+
+if MISTRAL_API_KEY:
+    MISTRAL_API_KEY = MISTRAL_API_KEY.strip()
+else:   
+    raise ValueError("MISTRAL_API_KEY not set in environment variables.")
+
 
 
 # ============================================
@@ -42,15 +63,6 @@ FRONTMATTER_KEY_ORDER = [
 # Data classes used throughout this project
 # Defualts can be overridden by user config
 # ============================================
-
-# Set paths
-ROOT_DIR = Path(__file__).resolve().parents[1]
-CONFIG_PATH = ROOT_DIR / "configs" / "user_config.yaml"
-CHROMA_DIR = ROOT_DIR / "chroma"
-DATA_DIR = ROOT_DIR / "data"
-HF_DATA_DIR = ROOT_DIR / "hf_data"
-LOGS_DIR = ROOT_DIR / "logs"
-
 
 T = TypeVar('T', bound='ConfigBase')
 
