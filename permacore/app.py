@@ -238,7 +238,7 @@ if __name__ == "__main__":
         raise ValueError("MISTRAL_API_KEY not set in environment variables.")
     
     # Downlaod any required data files from Hugging Face if needed
-    hf_hub_download(
+    dataset_path = hf_hub_download(
         repo_id="mk-mccann/Permacore_vectorstore",
         filename="chroma_db.tar.gz",
         cache_dir="../hf_data",
@@ -247,7 +247,7 @@ if __name__ == "__main__":
 
     # Extract, if not already done
     if not os.path.exists("../chroma"):
-        with tarfile.open("../hf_data/chroma_db.tar.gz", "r:gz") as tar:
+        with tarfile.open(dataset_path) as tar:
             tar.extractall("../chroma")
 
     # Set up configurations
