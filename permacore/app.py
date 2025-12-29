@@ -246,9 +246,10 @@ if __name__ == "__main__":
         local_files_only=True
     )
 
-    # Extract
-    with tarfile.open("../hf_data/chroma_db.tar.gz", "r:gz") as tar:
-        tar.extractall("../chroma")
+    # Extract, if not already done
+    if not os.path.exists("../chroma"):
+        with tarfile.open("../hf_data/chroma_db.tar.gz", "r:gz") as tar:
+            tar.extractall("../chroma")
 
     # Set up configurations
     chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
