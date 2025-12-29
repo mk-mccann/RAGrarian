@@ -156,9 +156,10 @@ class RetrieveDocumentsMiddleware(AgentMiddleware[CustomAgentState]):
         
         augmented_content = (
             f"{original_query}\n\n"
-            "Use the following context to answer the query. "
+            f"Use only information in the following context to answer the query. "
             "When using information from the context, cite the source number (e.g., [1]):\n\n"
-            f"{docs_content}"
+            f"{docs_content}\n\n"
+            "If nothing relevant is found, respond with: 'No relevant information available.'\n"
         )
         
         return augmented_content

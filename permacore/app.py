@@ -151,9 +151,9 @@ def create_demo():
         
         with gr.Tab("About"):
             gr.Markdown("""
-            ## About Permacore
+            ## About
             
-            This is a Retrieval-Augmented Generation (RAG) agent that answers questions about permaculture.
+            Permacore is a Retrieval-Augmented Generation (RAG) agent that answers questions about permaculture.
             
             ### Features:
             - 💬 **Interactive Chat**: Natural conversation with memory
@@ -174,13 +174,9 @@ def create_demo():
             - **UI**: Gradio
 
             ### Developed by:           
-            Matt McCann :copyright: 2025 | GPL v3
-                        
-            View the [Source Code](https://github.com/mk-mccann/Permacore) on GitHub
-                        
-            [Personal Site](www.mk-mccann.github.io) | [LinkedIn](https://linkedin.com/in/matt-k-mccann/)
-            """)
-            
+            **Matt McCann (C) 2025 | GPL v3**                           
+            [**Personal Site**](www.mk-mccann.github.io) | [**LinkedIn**](https://linkedin.com/in/matt-k-mccann/)
+            """)  
     
     return demo
 
@@ -191,14 +187,6 @@ if __name__ == "__main__":
     from config import CONFIG_PATH, HF_DATA_DIR, ROOT_DIR, CHROMA_DIR
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent Web UI")
-    parser.add_argument(
-        "--search_function",
-        type=str,
-        choices=["mmr", "similarity"],
-        default="similarity",
-        required=False,
-        help="Search function to use for retrieval [options: mmr, similarity (default)]"
-    )
     parser.add_argument(
         "--share",
         action="store_true",

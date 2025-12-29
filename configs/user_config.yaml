@@ -5,11 +5,11 @@ chroma:
 
 llm:
   model_name: mistral-small-latest
-  temperature: 0.5
+  temperature: 0.4
   max_tokens: 1024
 
 retrieval:
   top_k: 5
-  search_function: similarity        # Options: similarity, mmr
-  similarity_threshold: 0.5
+  search_function: mmr        # Options: similarity, mmr
+  similarity_threshold: 0.65
   lambda_mmr: 0.3
