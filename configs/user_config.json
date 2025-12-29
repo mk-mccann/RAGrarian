@@ -1,6 +1,5 @@
 {   
     "chroma": {
-        "directory": "../chroma",
         "collection_name": "permacore",
         "metadata": [
             {"hnsw:space": "cosine"}

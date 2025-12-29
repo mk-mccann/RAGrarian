@@ -187,9 +187,8 @@ def create_demo():
 
 if __name__ == "__main__":
     import argparse
-    from os import getenv
     from dotenv import load_dotenv
-    from config import CONFIG_PATH, HF_DATA_DIR, CHROMA_DIR, MISTRAL_API_KEY
+    from config import CONFIG_PATH, HF_DATA_DIR, CHROMA_DIR
 
     parser = argparse.ArgumentParser(description="Run the RAG Agent Web UI")
     parser.add_argument(
@@ -199,13 +198,6 @@ if __name__ == "__main__":
         default="similarity",
         required=False,
         help="Search function to use for retrieval [options: mmr, similarity (default)]"
-    )
-    parser.add_argument(
-        "--host",
-        type=str,
-        default="hf",
-        options=["local", "remote", "hf"],
-        help="Where the Gradio app is hosted. Use 'local' for localhost, 'remote' for remote hosting, or 'hf' for Hugging Face Spaces."
     )
     parser.add_argument(
         "--share",
@@ -236,8 +228,9 @@ if __name__ == "__main__":
             tar.extractall(CHROMA_DIR)
 
     # Set up configurations
+    load_dotenv()  # Load environment variables from .env file if present
     chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
-    chroma_config.embeddings = MistralAIEmbeddings(api_key=MISTRAL_API_KEY)    # type: ignore
+    chroma_config.embeddings = MistralAIEmbeddings()    # type: ignore
     llm_config = LLMConfig.from_config(CONFIG_PATH, "llm")
     retrieval_config = RetrievalConfig.from_config(CONFIG_PATH, "retrieval")
 
@@ -248,21 +241,9 @@ if __name__ == "__main__":
         retrieval_config=retrieval_config
         )
 
-    # Set ports for Gradio app depending on if local or hosted
-    if args.host == "local":
-        port = 7860
-        host = "127.0.0.1:7860"
-    elif args.host == "hf":
-        port = 7860
-        host = "0.0.0.0"
-    else:
-        raise NotImplementedError("Remote hosting not yet implemented.")
-
     app = create_demo()
     app.launch(
         theme=theme, 
-        server_name=host,
-        server_port=port,
         show_error=args.debug,
         share=args.share,
     )

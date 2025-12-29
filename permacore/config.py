@@ -17,14 +17,15 @@ CONFIG_PATH = ROOT_DIR / "configs" / "user_config.yaml"
 
 # Load environment variables from .env file if it exists
 load_dotenv()
-MISTRAL_API_KEY = getenv("MISTRAL_API_KEY")
 
-if MISTRAL_API_KEY:
-    MISTRAL_API_KEY = MISTRAL_API_KEY.strip()
+if getenv("MISTRAL_API_KEY"):
+    MISTRAL_API_KEY = getenv("MISTRAL_API_KEY").strip()
 else:   
     raise ValueError("MISTRAL_API_KEY not set in environment variables.")
 
-
+# Gradio server configuration from environment variables. Fall back to defaults if not set.
+GRADIO_SERVER_PORT = int(getenv("GRADIO_SERVER_PORT")) if getenv("GRADIO_SERVER_PORT") else 7860
+GRADIO_SERVER_NAME = getenv("GRADIO_SERVER_NAME") if getenv("GRADIO_SERVER_NAME") else "127.0.0.1"
 
 # ============================================
 # Configuration constants

@@ -327,17 +327,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    load_dotenv()
-    mistral_api_key = getenv("MISTRAL_API_KEY")
-
-    if mistral_api_key:
-        mistral_api_key = mistral_api_key.strip()
-    else:   
-        raise ValueError("MISTRAL_API_KEY not set in environment variables.")
-
     # Set up configurations
+    load_dotenv() # Load environment variables from .env file if present
     chroma_config = ChromaConfig.from_config(CONFIG_PATH, "chroma")
-    chroma_config.embeddings = MistralAIEmbeddings(api_key=mistral_api_key)    # type: ignore
+    chroma_config.embeddings = MistralAIEmbeddings()
     llm_config = LLMConfig.from_config(CONFIG_PATH, "llm")
     retrieval_config = RetrievalConfig.from_config(CONFIG_PATH, "retrieval")
 
